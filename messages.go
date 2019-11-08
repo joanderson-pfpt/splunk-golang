@@ -1,64 +1,82 @@
 package splunk
 
 import (
-        "fmt"
-        "time"
-        "net/url"
-        "encoding/json"
+    "encoding/json"
+    "fmt"
+    "net/url"
+    "time"
 )
 
 type MessageSeverity string
 
 type Message struct {
-        Name string `json:"name"`
-        Content MessageContent `json:"content"`
+    Name string `json:"name"`
+    Content MessageContent `json:"content"`
 }
 
 
 type MessageContent struct {
-        Message string `json:"message"`
-        Severity MessageSeverity `json:"severity"`
-        created int64 `json:"timeCreated_epochSecs"`
+    Message string `json:"message"`
+    Severity MessageSeverity `json:"severity"`
+    created int64 `json:"timeCreated_epochSecs"`
 }
 
 func (mc *MessageContent) Content() (time.Time) {
-        return time.Unix(mc.created, 0)
+    return time.Unix(mc.created, 0)
 }
 
 type Messages struct {
-        Origin string `json:"origin"`
-        Messages []Message `json:"entry"`
+    Origin string `json:"origin"`
+    Messages []Message `json:"entry"`
 }
 
 const (
-        Info MessageSeverity = "info"
-        Warn MessageSeverity = "warn"
-        Error MessageSeverity = "error"
+    Info MessageSeverity = "info"
+    Warn MessageSeverity = "warn"
+    Error MessageSeverity = "error"
 )
 
 // SendMessage sends an informational message to Splunk
 func (conn SplunkConnection) SendMessage(message *Message) (string, error) {
-        data := make(url.Values)
-        data.Add("name", message.Name)
-        data.Add("value", message.Content.Message)
-        data.Add("severity", string(message.Content.Severity))
-        response, err := conn.httpPost(fmt.Sprintf("%s/services/messages", conn.BaseURL), &data)
-        return response, err
+    data := make(url.Values)
+    data.Add("name", message.Name)
+    data.Add("value", message.Content.Message)
+    data.Add("severity", string(message.Content.Severity))
+    response, err := conn.httpPost(fmt.Sprintf("%s/services/messages", conn.BaseURL), &data)
+    return response, err
+}
+
+// GetMessages fetches all messages
+func (conn SplunkConnection) GetMessages() ([]Message, error) {
+    data := make(url.Values)
+    data.Add("output_mode", "json")
+    response, err := conn.httpGet(fmt.Sprintf("%s/services/messages", conn.BaseURL), &data)
+
+    if err != nil {
+        return []Message{}, err
+    }
+
+    bytes := []byte(response)
+    var messages Messages
+
+    unmarshall_error := json.Unmarshal(bytes, &messages)
+    return messages.Messages, unmarshall_error
 }
 
 
 func (conn SplunkConnection) GetMessage(name string) ([]Message, error) {
-        data := make(url.Values)
-        data.Add("name", name)
-        data.Add("output_mode", "json")
-        response, err := conn.httpGet(fmt.Sprintf("%s/services/messages/%s", conn.BaseURL, name), &data)
+    data := make(url.Values)
+    data.Add("name", name)
+    data.Add("output_mode", "json")
+    response, err := conn.httpGet(fmt.Sprintf("%s/services/messages/%s", conn.BaseURL, name), &data)
 
-        if err != nil {
-                return []Message{}, err
-        }
+    if err != nil {
+        return []Message{}, err
+    }
 
-        bytes := []byte(response)
-        var messages Messages
-        unmarshall_error := json.Unmarshal(bytes, &messages)
-        return messages.Messages, unmarshall_error
+    bytes := []byte(response)
+    var messages Messages
+
+    unmarshall_error := json.Unmarshal(bytes, &messages)
+    return messages.Messages, unmarshall_error
 }

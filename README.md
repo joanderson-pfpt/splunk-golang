@@ -6,7 +6,7 @@ Example Usage:
 
     import (
         "fmt"
-        "github.com/drewrm/splunk"
+        "github.com/joanderson-pfpt/splunk"
     )
 
     func main() {
